@@ -55,6 +55,7 @@ SKIP = [
   'BACKUP/ok','BACKUP/missing',
 ]
 print "### Let's rock! ###"
-password = getpass.getpass(prompt='Password for "%s": ' % account.username)
+print 'Password for "%s": ' % account.username,
+password = getpass.getpass(prompt='')
 lib.backup_account(account,password,skip=SKIP)
 print "### That's all, folks. ###"
