@@ -132,6 +132,8 @@ class ImapServer:
       m    = re.search(r'^%s \(UID (\d+) RFC822.SIZE (\d+)\)$' % num,data[0])
       uid  = int(m.group(1))
       size = int(m.group(2))
+      #TODO: check file size againts RFC822 size, to catch corrupted local files
+      #NB:   size as reported by Gmail will differ from the os filesize!!!
       try:
         fm = folder.foldermessage_set.get(uid=uid)
         if fm.message.hash != hsh:
