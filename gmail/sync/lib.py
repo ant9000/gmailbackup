@@ -243,7 +243,7 @@ def create_account(email=None):
   prompt  = ''
   account = None
   if email: prompt = ' for <%s>' % email
-  ask = raw_input('No account defined%s, do you want to create one? [Yn] ' % prompt)
+  ask = raw_input('Do you want to create a new account%s? [Yn] ' % prompt)
   if len(ask) and ask.lower()[0]=='n':
     return None
   while not account:
@@ -289,12 +289,16 @@ def choose_account(email):
     accounts = [ ('%s' % i,a) for i,a in enumerate(Account.objects.order_by('server','email')) ]
     for i,a in accounts:
       print '[%2s] <%s>' % (i,a.email)
+    print '[ c] CREATE'
     print '[ q] QUIT'
     ask      = None
     accounts = dict(accounts)
     while not accounts.has_key(ask):
       ask = raw_input('Account #? ')
-      if len(ask) and ask.lower()[0]=='q':
-        return None
+      if len(ask):
+        if ask.lower()[0]=='c':
+          return create_account()
+        elif ask.lower()[0]=='q':
+          return None
     account = accounts[ask]
   return account
