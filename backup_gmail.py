@@ -5,42 +5,42 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'gmail.settings'
 import gmail.settings as settings
 
 if not os.path.isdir(settings.MAIL_STORE):
-  #create store
+  print "NOTICE: creating directory for local storage at:"
+  print "        '%s'" % settings.MAIL_STORE
   os.mkdir(settings.MAIL_STORE)
 if not os.path.isfile(settings.DATABASE_NAME):
-  #init database
+  print "NOTICE: creating local storage state database"
+  print "        '%s'" % settings.DATABASE_NAME
   from django.core.management import execute_manager
   execute_manager(settings,[sys.argv[0],'syncdb'])
 
-from gmail.sync.models import Account
 from gmail.sync import lib
 
-SERVER, PORT, SSL = 'imap.gmail.com', 993, True
-if len(sys.argv)<2:
-  print "Usage: %s <email>" % os.path.basename(sys.argv[0])
+from optparse import OptionParser
+usage = """
+  %prog [options] [email]
+
+If you don't provide an email address and only
+one account exists, it will be used; otherwise
+you will be prompted to choose among the existing
+or create one. If you provide an email which has
+no related account information, you will be
+asked to create a new one.
+"""
+parser = OptionParser(usage=usage)
+#parser.add_option("-f", "--file", dest="filename",
+#                  help="write report to FILE", metavar="FILE")
+#parser.add_option("-q", "--quiet",
+#                  action="store_false", dest="verbose", default=True,
+#                  help="don't print status messages to stdout")
+(options, args) = parser.parse_args()
+
+email = None
+if args: email = args[0]
+account = lib.choose_account(email)
+if not account:
+  parser.print_help()
   sys.exit(1)
-email = sys.argv[1]
-try:
-  account  = Account.objects.get(email=email)
-except Account.DoesNotExist:
-  print "No account defined for <%s>, let's create one:" % email
-  username = raw_input('Username: [%s]' % email) 
-  server   = raw_input('Server:   [%s]' % SERVER)
-  port     = raw_input('Port:     [%s]' % PORT) 
-  ssl      = raw_input('SSL:      [%s]' % SSL) 
-  if username == '': username = email
-  if server   == '': server = SERVER
-  if port     == '': port   = PORT
-  if ssl      == '': ssl    = SSL
-  #TODO: add validation
-  account = Account(
-    email    = email,
-    username = username,
-    server   = server,
-    port     = port,
-    ssl      = ssl
-  )
-  account.save()
 
 #uncomment to revalidate local cache
 #lib.update_local_cache()

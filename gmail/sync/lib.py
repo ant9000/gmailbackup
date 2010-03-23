@@ -237,3 +237,64 @@ def backup_account(account,password,skip=[],debug=0):
     #if we got here, everything's ok and we can bail out
     break
   s.shutdown()
+
+def create_account(email=None):
+  SERVER, PORT, SSL = 'imap.gmail.com', 993, True
+  prompt  = ''
+  account = None
+  if email: prompt = ' for <%s>' % email
+  ask = raw_input('No account defined%s, do you want to create one? [Yn] ' % prompt)
+  if len(ask) and ask.lower()[0]=='n':
+    return None
+  while not account:
+    if not email:
+      email = raw_input('Email: ') 
+    username = raw_input('Username: [%s] ' % email) 
+    server   = raw_input('Server:   [%s] ' % SERVER)
+    port     = raw_input('Port:     [%s] ' % PORT) 
+    ssl      = raw_input('SSL:      [%s] ' % SSL) 
+    if username == '': username = email
+    if server   == '': server = SERVER
+    if port     == '': port   = PORT
+    if ssl      == '': ssl    = SSL
+    try:
+      account = Account(
+        email    = email,
+        username = username,
+        server   = server,
+        port     = port,
+        ssl      = ssl
+      )
+      account.save()
+    except Exception,e:
+      print "ERROR: %s" % e
+      ask = raw_input('Do you want to retry? [Yn] ')
+      if len(ask) and ask.lower()[0]=='n':
+        return None
+      account = None
+  return account
+
+def choose_account(email):
+  if email:
+    try:
+      account = Account.objects.get(email=email)
+    except Account.DoesNotExist:
+      account = create_account(email)
+  elif Account.objects.count() == 0:
+    account = create_account(email)
+  elif Account.objects.count() == 1:
+    account = Account.objects.all()[0]
+  else:
+    N = Account.objects.count()
+    accounts = [ ('%s' % i,a) for i,a in enumerate(Account.objects.order_by('server','email')) ]
+    for i,a in accounts:
+      print '[%2s] <%s>' % (i,a.email)
+    print '[ q] QUIT'
+    ask      = None
+    accounts = dict(accounts)
+    while not accounts.has_key(ask):
+      ask = raw_input('Account #? ')
+      if len(ask) and ask.lower()[0]=='q':
+        return None
+    account = accounts[ask]
+  return account
