@@ -1,10 +1,11 @@
 from django.db import models
 
 class Message(models.Model):
-  hash     = models.CharField(max_length=500,unique=True) 
-  filename = models.CharField(max_length=500,unique=True)
-  date     = models.DateTimeField()
-  size     = models.PositiveIntegerField()  
+  hash          = models.CharField(max_length=500,unique=True) 
+  filename      = models.CharField(max_length=500,unique=True)
+  date          = models.DateTimeField()
+  size          = models.PositiveIntegerField()  
+  dos2unix_size = models.PositiveIntegerField()  
   #TODO: shall we add more headers for searching?
 
 class Account(models.Model):

@@ -132,15 +132,22 @@ class ImapServer:
       m    = re.search(r'^%s \(UID (\d+) RFC822.SIZE (\d+)\)$' % num,data[0])
       uid  = int(m.group(1))
       size = int(m.group(2))
-      #TODO: check file size againts RFC822 size, to catch corrupted local files
-      #NB:   size as reported by Gmail will differ from the os filesize!!!
       try:
         fm = folder.foldermessage_set.get(uid=uid)
         if fm.message.hash != hsh:
-          print "ERROR: uid %s already exists with a different hash. Have UIDs changed???"
+          print "ERROR: uid %s already exists with a different hash. Have UIDs changed???" % uid
+          continue
+        elif fm.message.size < size:
+          #we check filesize againts RFC822 size to catch corrupted messages
+          print "NOTICE: uid %s exists in local cache, but is truncated; it will be fetched again." % uid
+          fm.delete()
+          raise FolderMessage.DoesNotExist() 
+        elif not fm.message.dos2unix_size <= size <= fm.message.size:
+          #message size as reported by Gmail differs from both the RFC822 file and the Unix line-endings one
+          print "ERROR: uid %s exists in local cache but it is bigger - is the remote file corrupted?" % uid
           continue
       except FolderMessage.DoesNotExist:
-        #message is missing in this folder
+        #message is missing/truncated
         try:
           eml = Message.objects.get(hash=hsh)
         except Message.DoesNotExist:
@@ -166,10 +173,11 @@ class ImapServer:
               print "ERROR: uid %s, storing message as '%s' failed: %s" % (uid, ff, e)
               continue
             eml = Message(
-              hash     = hsh,
-              filename = os.path.basename(ff),
-              date     = time.strftime('%Y-%m-%d %H:%M:%S',parsedDate(get_hdr(msg,'Date'))),
-              size     = os.stat(ff).st_size
+              hash          = hsh,
+              filename      = os.path.basename(ff),
+              date          = time.strftime('%Y-%m-%d %H:%M:%S',parsedDate(get_hdr(msg,'Date'))),
+              size          = os.stat(ff).st_size,
+              dos2unix_size = len(re.sub('\r\n','\n',rfc822))
             )
             eml.save()
             print "NOTICE: uid %s, stored message as '%s'." % (uid, ff)
@@ -179,29 +187,39 @@ class ImapServer:
       folder.last_seen = now()
       folder.save()
       print "NOTICE: folder '%s', last_uid %s " % (folder.name, uid)
-
 def update_local_cache():
-  files  = dircache.listdir(settings.MAIL_STORE)
-  N      = len(files)
+  files    = dircache.listdir(settings.MAIL_STORE)
+  N        = len(files)
+  dos2unix = re.compile('\r\n')
   print "\0337",
   for n,f in enumerate(files):
     if n % 100 == 0: print "\033[1K%d / %d\0338" % (n,N),
     ff = os.path.join(settings.MAIL_STORE,f)
     if not (f.endswith(".eml") and os.path.isfile(ff)): continue
-    msg  = email.parser.HeaderParser().parse(open(ff,"r"))
-    hsh = hash(msg)
+    msg_file = open(ff,"r") 
+    msg      = email.parser.HeaderParser().parse(msg_file)
+    hsh      = hash(msg)
+    d2u_size = 0
+    msg_file.seek(0)
+    for line in msg_file.readline():
+      d2u_size += len(dos2unix.sub('\n',line))
+    msg_file.close()
     date = time.strftime('%Y-%m-%d %H:%M:%S',parsedDate(get_hdr(msg,'Date')))
     size = os.stat(ff).st_size
     m,created = Message.objects.get_or_create(
       hash     = hsh,
-      defaults = { 'filename': f, 'date': date, 'size': size }
+      defaults = { 'filename': f, 'date': date, 'size': size, 'dos2unix_size': d2u_size }
     )
     if created:
       m.save()
     elif m.filename != f:
       print "ERROR: hash '%s' is not unique!!!" % hsh
-    elif m.date.strftime('%Y-%m-%d %H:%M:%S') != date or m.size != size:
-      print "ERROR: inconsistent date/size for file '%s'" % f
+    elif m.date.strftime('%Y-%m-%d %H:%M:%S') != date:
+      print "ERROR: inconsistent date for '%s': corrupted file?" % f
+    elif m.size != size:
+      print "ERROR: inconsistent size for '%s': corrupted file?" % f
+    elif m.dos2unix_size != d2u_size:
+      print "ERROR: inconsistent dos2unix size for '%s': corrupted file?" % f
     else: #everything's ok
       pass
 
