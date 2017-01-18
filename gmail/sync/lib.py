@@ -105,7 +105,12 @@ class ImapServer:
       print "ERROR: cannot select folder '%s'." % folder.name
       print ">> %s" % e
       return
-    uidvalidity = int(self.connection.response('UIDVALIDITY')[1][0])
+    try:
+      uidvalidity = int(self.connection.response('UIDVALIDITY')[1][0])
+    except TypeError,e:
+      print "ERROR: cannot select folder '%s'." % folder.name
+      print ">> %s" % e
+      return
     if folder.uidvalidity != uidvalidity:
       print "ERROR: folder '%s', uidvalidity has changed!!!" % folder.name
       return
