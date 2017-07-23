@@ -18,7 +18,7 @@ from gmail.sync import lib
 
 from optparse import OptionParser
 usage = """
-  %prog [options] [email]
+  %prog [options] [email] [password]
 
 If you don't provide an email address and only
 one account exists, it will be used; otherwise
