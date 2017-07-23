@@ -36,7 +36,12 @@ parser = OptionParser(usage=usage)
 (options, args) = parser.parse_args()
 
 email = None
-if args: email = args[0]
+password = None
+if len(args) > 0:
+  email = args[0]
+if len(args) > 1:
+  password = args[1]
+
 account = lib.choose_account(email)
 if not account:
   parser.print_help()
@@ -55,7 +60,8 @@ SKIP = [
   'BACKUP/ok','BACKUP/missing',
 ]
 print "### Let's rock! ###"
-print 'Password for "%s": ' % account.username,
-password = getpass.getpass(prompt='')
+if not password:
+  print 'Password for "%s": ' % account.username,
+  password = getpass.getpass(prompt='')
 lib.backup_account(account,password,skip=SKIP)
 print "### That's all, folks. ###"
